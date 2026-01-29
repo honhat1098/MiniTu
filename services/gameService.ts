@@ -1,192 +1,228 @@
-import { createClient, RealtimeChannel } from "@supabase/supabase-js";
-import { GameEvent } from "../types";
+import React, { useState, useEffect } from 'react';
+import { GamePhase, GameState, Player, GameEvent, GameRound } from './types';
+import { broadcastEvent, subscribeToGameEvents, generatePin, connectToGameRoom, toggleBackgroundMusic, playSound } from './services/gameService';
+import { TeacherView } from './components/TeacherView';
+import StudentView from './components/StudentView';
+import { Home } from './components/Home';
 
-// --- CẤU HÌNH SUPABASE ---
-const SUPABASE_URL = 'https://depaeokhrsfwxczqckjr.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlcGFlb2tocnNmd3hjenFja2pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1MDU4NzgsImV4cCI6MjA4NTA4MTg3OH0.P4IiK6T3QL6HLNq61Az93B1boNNV5KNB_14xfoQPHVM'; 
-// ---------------------------------------------
+// --- DATA CẤU HÌNH GAME ---
+const WORD_POOL = [
+  "Lắng nghe", "Tranh cãi", "Nhượng bộ", "Bình tĩnh", "Đổ lỗi", 
+  "Hợp tác", "Né tránh", "Thỏa hiệp", "Tôn trọng", "Cáu gắt", 
+  "Chỉ trích", "Đồng cảm", "Áp đặt", "Đối thoại", "Im lặng", 
+  "Phản ứng", "Chia sẻ", "Kiềm chế", "Phủ nhận", "Thông cảm",
+  "Phán xét", "Tha thứ", "Gây hấn", "Cởi mở"
+];
 
-let supabase: any = null;
-let currentChannel: RealtimeChannel | null = null;
-
-try {
-  if (SUPABASE_KEY && SUPABASE_URL) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const GAME_ROUNDS: GameRound[] = [
+  {
+    id: 1,
+    question: "Đối phương đang rất giận dữ và to tiếng. Bạn nên làm gì đầu tiên?",
+    correctWords: ["Bình tĩnh", "Lắng nghe", "Kiềm chế"], 
+    allWords: WORD_POOL, // Dùng chung pool hoặc shuffle tùy ý
+    duration: 15
+  },
+  {
+    id: 2,
+    question: "Hành vi nào dễ làm mâu thuẫn leo thang và tồi tệ hơn?",
+    correctWords: ["Đổ lỗi", "Chỉ trích", "Cáu gắt", "Gây hấn"],
+    allWords: WORD_POOL,
+    duration: 15
+  },
+  {
+    id: 3,
+    question: "Để cả hai bên cùng có lợi (Win-Win), chúng ta cần thái độ nào?",
+    correctWords: ["Hợp tác", "Cởi mở"],
+    allWords: WORD_POOL,
+    duration: 15
+  },
+  {
+    id: 4,
+    question: "Giải pháp tạm thời để 'hạ nhiệt' khi quá căng thẳng, chưa thể nói chuyện ngay?",
+    correctWords: ["Né tránh", "Im lặng", "Kiềm chế"], // Tạm hoãn
+    allWords: WORD_POOL,
+    duration: 15
+  },
+  {
+    id: 5,
+    question: "Trong mâu thuẫn, yếu tố quan trọng nhất để duy trì mối quan hệ là gì?",
+    correctWords: ["Tôn trọng", "Đồng cảm"],
+    allWords: WORD_POOL,
+    duration: 15
   }
-} catch (e) {
-  console.error("Supabase init failed", e);
-}
+];
 
-let onGameEvent: ((event: GameEvent) => void) | null = null;
+const INITIAL_STATE: GameState = {
+  pin: '',
+  phase: GamePhase.LOBBY,
+  players: [],
+  currentRoundIndex: 0,
+  roundStartTime: null,
+  rounds: GAME_ROUNDS
+};
 
-export const connectToGameRoom = async (pin: string) => {
-  if (!supabase) return;
-  if (currentChannel) await supabase.removeChannel(currentChannel);
+const App: React.FC = () => {
+  const [role, setRole] = useState<'teacher' | 'student' | null>(null);
+  const [gameState, setGameState] = useState<GameState>(INITIAL_STATE);
+  const [localPlayerId, setLocalPlayerId] = useState<string | null>(null);
 
-  currentChannel = supabase.channel(`ninja_room_${pin}`, {
-    config: { broadcast: { self: true } },
-  });
+  // Global Audio Unlock & Click Ripple Effect
+  useEffect(() => {
+    const handleFirstClick = () => {
+      toggleBackgroundMusic(false); // Init context only
+    };
+    
+    const handleClickSound = (e: MouseEvent) => {
+        // Only play if not silenced or specific elements
+        playSound('click');
+        
+        // Add visual ripple
+        const ripple = document.createElement('div');
+        ripple.className = 'click-ripple';
+        ripple.style.left = `${e.clientX}px`;
+        ripple.style.top = `${e.clientY}px`;
+        document.body.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+    };
 
-  currentChannel
-    .on('broadcast', { event: 'game-event' }, (payload: { payload: GameEvent }) => {
-      if (onGameEvent) onGameEvent(payload.payload);
-    })
-    .subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') console.log("Connected to room", pin);
+    window.addEventListener('click', handleFirstClick, { once: true });
+    window.addEventListener('click', handleClickSound);
+    
+    return () => {
+        window.removeEventListener('click', handleFirstClick);
+        window.removeEventListener('click', handleClickSound);
+    };
+  }, []);
+
+  // Sync Logic
+  useEffect(() => {
+    const unsubscribe = subscribeToGameEvents((event: GameEvent) => {
+      if (role === 'teacher') {
+        if (event.type === 'PLAYER_JOIN') {
+          playSound('join');
+          setGameState(prev => {
+             if (prev.players.find(p => p.id === event.payload.id)) return prev;
+             const newState = { ...prev, players: [...prev.players, event.payload] };
+             broadcastEvent({ type: 'SYNC_STATE', payload: newState });
+             return newState;
+          });
+        }
+        else if (event.type === 'PLAYER_SUBMIT') {
+           // Teacher calculates score immediately upon submission
+           setGameState(prev => {
+             const round = prev.rounds[prev.currentRoundIndex];
+             // Safety check: if round undefined
+             if (!round) return prev;
+
+             const isCorrect = round.correctWords.includes(event.payload.answer);
+             
+             // Scoring: Base 1000 + Time Bonus (max 500) if correct
+             let scoreToAdd = 0;
+             if (isCorrect) {
+               const maxTime = round.duration * 1000;
+               const timeTaken = Math.min(event.payload.timeTaken, maxTime); // clamp time
+               const timeBonus = Math.max(0, Math.floor(((maxTime - timeTaken) / maxTime) * 500));
+               scoreToAdd = 1000 + timeBonus;
+               playSound('correct'); // Subtle notify for host
+             }
+
+             const updatedPlayers = prev.players.map(p => 
+               p.id === event.payload.id 
+                 ? { 
+                     ...p, 
+                     score: p.score + scoreToAdd, 
+                     lastAnswer: event.payload.answer,
+                     lastAnswerTime: event.payload.timeTaken
+                   }
+                 : p
+             );
+
+             const newState = { ...prev, players: updatedPlayers };
+             // FORCE SYNC: Đảm bảo tất cả client đều biết trạng thái "đã chọn"
+             broadcastEvent({ type: 'SYNC_STATE', payload: newState });
+             return newState;
+           });
+        }
+      } 
+      else if (role === 'student') {
+        if (event.type === 'SYNC_STATE') {
+          setGameState(event.payload);
+        }
+        if (event.type === 'HOST_NEXT_ROUND') {
+           setGameState(prev => ({ 
+             ...prev, 
+             phase: GamePhase.PLAYING, 
+             currentRoundIndex: event.payload.roundIndex,
+             roundStartTime: event.payload.startTime,
+             // Student state reset handles in component via selectedWord
+           }));
+           playSound('start');
+        }
+        if (event.type === 'HOST_SHOW_RESULT') {
+           setGameState(prev => ({ ...prev, phase: GamePhase.ROUND_RESULT }));
+           // Play sound handled in view based on result
+        }
+        if (event.type === 'HOST_END') {
+           setGameState(prev => ({ ...prev, phase: GamePhase.FINISHED }));
+           playSound('victory');
+        }
+      }
     });
+    return () => unsubscribe();
+  }, [role]);
+
+  const handleBecomeHost = async () => {
+    const newPin = generatePin();
+    await connectToGameRoom(newPin);
+    const newState = { ...INITIAL_STATE, pin: newPin };
+    setGameState(newState);
+    setRole('teacher');
+    toggleBackgroundMusic(true);
+  };
+
+  const handleBecomeStudent = () => {
+    setRole('student');
+    toggleBackgroundMusic(false); 
+  };
+
+  return (
+    <div className="min-h-screen font-sans overflow-hidden text-white relative bg-gradient-to-br from-brand-dark via-brand-purple to-pink-900">
+       {/* Background Particles - Updated Colors */}
+       <div className="absolute inset-0 opacity-30 pointer-events-none">
+          <div className="absolute top-10 left-20 w-64 h-64 bg-brand-accent rounded-full blur-[100px] animate-pulse"></div>
+          <div className="absolute bottom-10 right-20 w-80 h-80 bg-brand-secondary rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600 rounded-full blur-[120px] opacity-50"></div>
+       </div>
+
+      <main className="relative z-10 h-full">
+        {!role && <Home onHost={handleBecomeHost} onJoin={handleBecomeStudent} />}
+        
+        {role === 'teacher' && (
+          <TeacherView 
+            gameState={gameState} 
+            updateGameState={(newState) => {
+              setGameState(newState);
+              broadcastEvent({ type: 'SYNC_STATE', payload: newState });
+            }} 
+          />
+        )}
+        
+        {role === 'student' && (
+          <StudentView 
+            gameState={gameState} 
+            localPlayerId={localPlayerId} 
+            setLocalPlayerId={setLocalPlayerId}
+          />
+        )}
+      </main>
+
+      {/* Watermark */}
+      <div className="fixed top-4 right-4 z-50 text-white/30 font-bold text-[10px] pointer-events-none text-right">
+         <div className="uppercase tracking-widest text-brand-accent">Conflict Master</div>
+         <div>Group 4</div>
+      </div>
+    </div>
+  );
 };
 
-export const subscribeToGameEvents = (callback: (event: GameEvent) => void) => {
-  onGameEvent = callback;
-  return () => { onGameEvent = null; };
-};
-
-export const broadcastEvent = async (event: GameEvent) => {
-  if (!currentChannel) return;
-  await currentChannel.send({
-    type: 'broadcast',
-    event: 'game-event',
-    payload: event,
-  });
-};
-
-export const generatePin = () => Math.floor(100000 + Math.random() * 900000).toString();
-export const getAvatarUrl = (id: number) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`;
-export const getQrCodeUrl = (data: string) => `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
-
-// --- Audio System (Updated for Upbeat/Funky Feel) ---
-const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-let bgMusicAudio: HTMLAudioElement | null = null;
-
-export const toggleBackgroundMusic = (shouldPlay: boolean) => {
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-
-  if (!bgMusicAudio) {
-    // New Upbeat / Funky Track suitable for gameshows
-    bgMusicAudio = new Audio('https://cdn.pixabay.com/download/audio/2021/11/01/audio_00fa556552.mp3?filename=funky-life-112188.mp3'); 
-    bgMusicAudio.loop = true;
-    bgMusicAudio.volume = 0.25;
-  }
-
-  if (shouldPlay) {
-    bgMusicAudio.play().catch(() => console.log("User interaction needed for music"));
-  } else {
-    bgMusicAudio.pause();
-  }
-};
-
-export const playSound = (type: 'slice' | 'explosion' | 'wrong' | 'start' | 'victory' | 'join' | 'correct' | 'tick' | 'click') => {
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  
-  const now = audioCtx.currentTime;
-  const gainNode = audioCtx.createGain();
-  gainNode.connect(audioCtx.destination);
-
-  switch (type) {
-    case 'slice':
-      // Sharp Woosh
-      const osc = audioCtx.createOscillator();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(1200, now);
-      osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-      gainNode.gain.setValueAtTime(0.1, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.1);
-      osc.start(now);
-      osc.stop(now + 0.1);
-      break;
-
-    case 'explosion':
-      // Soft Pop
-      const osc2 = audioCtx.createOscillator();
-      osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(200, now);
-      osc2.frequency.exponentialRampToValueAtTime(50, now + 0.3);
-      gainNode.gain.setValueAtTime(0.3, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.3);
-      osc2.start(now);
-      osc2.stop(now + 0.3);
-      break;
-
-    case 'wrong':
-      // Low Error Buzz
-      const osc3 = audioCtx.createOscillator();
-      osc3.type = 'sawtooth';
-      osc3.frequency.setValueAtTime(150, now);
-      osc3.frequency.linearRampToValueAtTime(100, now + 0.3);
-      gainNode.gain.setValueAtTime(0.3, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.3);
-      osc3.start(now);
-      osc3.stop(now + 0.3);
-      break;
-
-    case 'victory':
-      // Arpeggio
-      const notes = [523.25, 659.25, 783.99, 1046.50];
-      notes.forEach((freq, i) => {
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.type = 'square';
-        o.frequency.value = freq;
-        o.connect(g);
-        g.connect(audioCtx.destination);
-        const startTime = now + i * 0.1;
-        g.gain.setValueAtTime(0.1, startTime);
-        g.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
-        o.start(startTime);
-        o.stop(startTime + 0.5);
-      });
-      break;
-
-    case 'start':
-      // Power Up
-      const oscStart = audioCtx.createOscillator();
-      oscStart.type = 'triangle';
-      oscStart.frequency.setValueAtTime(220, now);
-      oscStart.frequency.linearRampToValueAtTime(880, now + 0.4);
-      gainNode.gain.setValueAtTime(0.2, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
-      oscStart.start(now); oscStart.stop(now + 0.4);
-      break;
-
-    case 'join':
-      // Ding
-      const oscJoin = audioCtx.createOscillator();
-      oscJoin.type = 'sine';
-      oscJoin.frequency.setValueAtTime(1200, now);
-      gainNode.gain.setValueAtTime(0.1, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-      oscJoin.start(now); oscJoin.stop(now + 0.5);
-      break;
-
-    case 'correct':
-      // High Ding
-      const oscCorrect = audioCtx.createOscillator();
-      oscCorrect.type = 'sine';
-      oscCorrect.frequency.setValueAtTime(880, now);
-      oscCorrect.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
-      gainNode.gain.setValueAtTime(0.2, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.2);
-      oscCorrect.start(now); oscCorrect.stop(now + 0.2);
-      break;
-
-    case 'tick':
-      // Wood block click
-      const oscTick = audioCtx.createOscillator();
-      oscTick.type = 'square';
-      oscTick.frequency.setValueAtTime(1200, now);
-      gainNode.gain.setValueAtTime(0.05, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-      oscTick.start(now); oscTick.stop(now + 0.03);
-      break;
-
-    case 'click':
-      // Modern UI Click (Crisp)
-      const oscClick = audioCtx.createOscillator();
-      oscClick.type = 'triangle';
-      oscClick.frequency.setValueAtTime(600, now);
-      gainNode.gain.setValueAtTime(0.1, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-      oscClick.start(now); oscClick.stop(now + 0.08);
-      break;
-  }
-};
+export default App;
