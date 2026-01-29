@@ -66,13 +66,32 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(INITIAL_STATE);
   const [localPlayerId, setLocalPlayerId] = useState<string | null>(null);
 
-  // Global Audio Unlock
+  // Global Audio Unlock & Click Ripple Effect
   useEffect(() => {
     const handleFirstClick = () => {
       toggleBackgroundMusic(false); // Init context only
     };
+    
+    const handleClickSound = (e: MouseEvent) => {
+        // Only play if not silenced or specific elements
+        playSound('click');
+        
+        // Add visual ripple
+        const ripple = document.createElement('div');
+        ripple.className = 'click-ripple';
+        ripple.style.left = `${e.clientX}px`;
+        ripple.style.top = `${e.clientY}px`;
+        document.body.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+    };
+
     window.addEventListener('click', handleFirstClick, { once: true });
-    return () => window.removeEventListener('click', handleFirstClick);
+    window.addEventListener('click', handleClickSound);
+    
+    return () => {
+        window.removeEventListener('click', handleFirstClick);
+        window.removeEventListener('click', handleClickSound);
+    };
   }, []);
 
   // Sync Logic
@@ -167,11 +186,12 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen font-sans overflow-hidden text-white relative bg-gradient-to-br from-[#120c29] via-[#302b63] to-[#24243e]">
-       {/* Background Particles */}
-       <div className="absolute inset-0 opacity-20 pointer-events-none">
-          <div className="absolute top-10 left-20 w-32 h-32 bg-purple-500 rounded-full blur-3xl animate-float"></div>
-          <div className="absolute bottom-10 right-20 w-48 h-48 bg-blue-500 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
+    <div className="min-h-screen font-sans overflow-hidden text-white relative bg-gradient-to-br from-brand-dark via-brand-purple to-pink-900">
+       {/* Background Particles - Updated Colors */}
+       <div className="absolute inset-0 opacity-30 pointer-events-none">
+          <div className="absolute top-10 left-20 w-64 h-64 bg-brand-accent rounded-full blur-[100px] animate-pulse"></div>
+          <div className="absolute bottom-10 right-20 w-80 h-80 bg-brand-secondary rounded-full blur-[100px] animate-float" style={{animationDelay: '2s'}}></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600 rounded-full blur-[120px] opacity-50"></div>
        </div>
 
       <main className="relative z-10 h-full">
@@ -198,7 +218,7 @@ const App: React.FC = () => {
 
       {/* Watermark */}
       <div className="fixed top-4 right-4 z-50 text-white/30 font-bold text-[10px] pointer-events-none text-right">
-         <div className="uppercase tracking-widest">Conflict Master</div>
+         <div className="uppercase tracking-widest text-brand-accent">Conflict Master</div>
          <div>Group 4</div>
       </div>
     </div>
