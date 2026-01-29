@@ -12,7 +12,7 @@ export const Home: React.FC<HomeProps> = ({ onHost, onJoin }) => {
       <h2 className="text-4xl md:text-6xl font-black mb-4 leading-tight">
         Chọn <br/>
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-brand-red">
-          Từ Phù Hợp
+          Hành Động Phù Hợp
         </span>
       </h2>
       <p className="text-xl text-white/80 mb-12 max-w-2xl">
