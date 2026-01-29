@@ -262,7 +262,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
             {/* Left: Info */}
             <div className="w-full md:w-1/3 glass-panel rounded-3xl p-8 flex flex-col justify-center items-center text-center relative border-t border-brand-accent/50">
                
-               <h1 className="text-3xl font-black uppercase italic mb-2 text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-brand-secondary leading-tight">Chọn<br/>ĐÚNG</h1>
+               <h1 className="text-5xl font-black uppercase italic mb-2 text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-brand-secondary leading-tight">Chón<br/>ĐÚNG</h1>
                
                <div className="bg-white p-4 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] mb-4 mt-4 transform hover:scale-105 transition-transform">
                   <img src={qrUrl} alt="QR" className="w-40 h-40 mix-blend-multiply" />
@@ -325,9 +325,9 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
     const sortedPlayers = [...gameState.players].sort((a, b) => b.score - a.score).slice(0, 5);
 
     return (
-      <div className="h-full flex flex-col p-6 max-w-7xl mx-auto">
+      <div className="h-full flex flex-col p-6 max-w-7xl mx-auto overflow-hidden">
          {/* Top Bar */}
-         <div className="flex justify-between items-center mb-6">
+         <div className="flex justify-between items-center mb-4 shrink-0">
             <div className="bg-white/10 px-6 py-3 rounded-full font-bold text-xl border border-white/10">
                Vòng <span className="text-brand-accent">{gameState.currentRoundIndex + 1}</span> / {gameState.rounds.length}
             </div>
@@ -339,10 +339,11 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
             </div>
          </div>
 
-         <div className="flex-1 flex flex-col items-center justify-start relative">
+         {/* Main Scrollable Content Area */}
+         <div className="flex-1 w-full flex flex-col items-center overflow-y-auto pb-6 scrollbar-hide">
             
             {/* Question Card */}
-            <div className="w-full max-w-5xl mb-6 text-center z-10 transition-all duration-300">
+            <div className="w-full max-w-5xl mb-6 text-center z-10 transition-all duration-300 shrink-0 mt-4">
                <h2 className={`font-black leading-tight drop-shadow-xl mb-4 ${isResult ? 'text-3xl text-white/80' : 'text-4xl md:text-6xl text-white'}`}>
                   {currentRound.question}
                </h2>
@@ -350,7 +351,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
 
             {/* PLAYER STATUS GRID */}
             {!isResult && (
-                <div className="w-full max-w-5xl mb-8 flex flex-wrap justify-center gap-4 animate-pop">
+                <div className="w-full max-w-5xl mb-8 flex flex-wrap justify-center gap-4 animate-pop shrink-0">
                     {gameState.players.map(p => {
                         const hasAnswered = !!p.lastAnswer;
                         return (
@@ -375,7 +376,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
 
             {/* RESULT REVEAL */}
             {isResult && (
-               <div className="w-full max-w-4xl bg-brand-darker/80 backdrop-blur-xl rounded-3xl p-10 border border-brand-accent/30 animate-pop flex flex-col items-center shadow-2xl">
+               <div className="w-full max-w-4xl bg-brand-darker/80 backdrop-blur-xl rounded-3xl p-10 border border-brand-accent/30 animate-pop flex flex-col items-center shadow-2xl shrink-0 mb-4">
                   <div className="text-sm uppercase tracking-widest text-brand-accent mb-6 font-bold">Đáp án chính xác</div>
                   <div className="flex flex-wrap justify-center gap-4 mb-10">
                      {currentRound.correctWords.map(word => (
@@ -398,14 +399,14 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
             )}
          </div>
 
-         {/* Mini Leaderboard */}
-         <div className="mt-auto h-28 flex items-end justify-center gap-6 pb-4">
+         {/* Mini Leaderboard (Fixed Footer) */}
+         <div className="shrink-0 h-32 flex items-end justify-center gap-6 pb-4 pt-2 border-t border-white/5 bg-gradient-to-t from-black/40 to-transparent rounded-t-3xl -mx-6 px-6">
             {sortedPlayers.map((p, i) => (
-               <div key={p.id} className="flex flex-col items-center transition-all duration-500 relative" style={{order: i === 0 ? 1 : i + 1, transform: i === 0 ? 'scale(1.1)' : 'scale(0.9)'}}>
+               <div key={p.id} className="flex flex-col items-center transition-all duration-500 relative" style={{order: i === 0 ? 1 : i + 1, transform: i === 0 ? 'scale(1.1) translateY(-10px)' : 'scale(0.9)'}}>
                   {i===0 && <Crown className="text-brand-yellow w-6 h-6 mb-1 animate-bounce" fill="currentColor" />}
                   <div className="bg-brand-darker/80 backdrop-blur border border-white/10 rounded-lg px-3 py-1 mb-2 text-sm font-bold text-brand-accent shadow-lg">{p.score}</div>
                   <img src={getAvatarUrl(p.avatarId)} className={`rounded-full border-4 bg-white ${i===0 ? 'w-16 h-16 border-brand-yellow shadow-[0_0_20px_rgba(250,204,21,0.5)]' : 'w-14 h-14 border-white/50'}`} />
-                  <div className="text-xs mt-2 font-bold">{p.name}</div>
+                  <div className="text-xs mt-2 font-bold max-w-[80px] truncate text-center">{p.name}</div>
                </div>
             ))}
          </div>
