@@ -262,7 +262,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
             {/* Left: Info */}
             <div className="w-full md:w-1/3 glass-panel rounded-3xl p-8 flex flex-col justify-center items-center text-center relative border-t border-brand-accent/50">
                
-               <h1 className="text-5xl font-black uppercase italic mb-2 text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-brand-secondary leading-tight">Chón<br/>ĐÚNG</h1>
+               <h1 className="text-3xl font-black uppercase italic mb-2 text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-brand-secondary leading-tight">Chọn<br/>ĐÚNG</h1>
                
                <div className="bg-white p-4 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] mb-4 mt-4 transform hover:scale-105 transition-transform">
                   <img src={qrUrl} alt="QR" className="w-40 h-40 mix-blend-multiply" />
