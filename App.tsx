@@ -92,13 +92,17 @@ const App: React.FC = () => {
            // Teacher calculates score immediately upon submission
            setGameState(prev => {
              const round = prev.rounds[prev.currentRoundIndex];
+             // Safety check: if round undefined
+             if (!round) return prev;
+
              const isCorrect = round.correctWords.includes(event.payload.answer);
              
              // Scoring: Base 1000 + Time Bonus (max 500) if correct
              let scoreToAdd = 0;
              if (isCorrect) {
                const maxTime = round.duration * 1000;
-               const timeBonus = Math.max(0, Math.floor(((maxTime - event.payload.timeTaken) / maxTime) * 500));
+               const timeTaken = Math.min(event.payload.timeTaken, maxTime); // clamp time
+               const timeBonus = Math.max(0, Math.floor(((maxTime - timeTaken) / maxTime) * 500));
                scoreToAdd = 1000 + timeBonus;
                playSound('correct'); // Subtle notify for host
              }
@@ -115,8 +119,8 @@ const App: React.FC = () => {
              );
 
              const newState = { ...prev, players: updatedPlayers };
-             // Không broadcast SYNC_STATE liên tục để tránh lộ đáp án hoặc lag, 
-             // chỉ update local state của Teacher, Teacher sẽ broadcast khi hết giờ.
+             // FORCE SYNC: Đảm bảo tất cả client đều biết trạng thái "đã chọn"
+             broadcastEvent({ type: 'SYNC_STATE', payload: newState });
              return newState;
            });
         }
@@ -131,7 +135,7 @@ const App: React.FC = () => {
              phase: GamePhase.PLAYING, 
              currentRoundIndex: event.payload.roundIndex,
              roundStartTime: event.payload.startTime,
-             // Reset player local state logic if needed in component
+             // Student state reset handles in component via selectedWord
            }));
            playSound('start');
         }
