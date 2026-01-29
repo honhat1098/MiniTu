@@ -1,31 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GameState, GamePhase } from '../types';
+import { GameState, GamePhase, GameRound } from '../types';
 import { broadcastEvent, getAvatarUrl, getQrCodeUrl, playSound } from '../services/gameService';
-import { Users, Crown, Play, Timer, ArrowRight, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Crown, Play, Timer, ArrowRight, CheckCircle, XCircle, Upload, FileJson } from 'lucide-react';
 
 interface TeacherViewProps {
   gameState: GameState;
   updateGameState: (newState: GameState) => void;
 }
 
+const DEFAULT_POOL = [
+  "Lắng nghe", "Tranh cãi", "Nhượng bộ", "Bình tĩnh", "Đổ lỗi", 
+  "Hợp tác", "Né tránh", "Thỏa hiệp", "Tôn trọng", "Cáu gắt", 
+  "Chỉ trích", "Đồng cảm", "Áp đặt", "Đối thoại", "Im lặng", 
+  "Phản ứng", "Chia sẻ", "Kiềm chế", "Phủ nhận", "Thông cảm"
+];
+
 export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameState }) => {
   const [timeLeft, setTimeLeft] = useState(0);
+  const [jsonError, setJsonError] = useState<string | null>(null);
   const timerRef = useRef<number | null>(null);
 
   const currentRound = gameState.rounds[gameState.currentRoundIndex];
 
-  // Timer Logic
+  // 1. Timer Logic
   useEffect(() => {
     if (gameState.phase === GamePhase.PLAYING) {
-      setTimeLeft(currentRound.duration);
+      // Set initial time from round config or default to 15s
+      setTimeLeft(currentRound.duration || 15);
+      
       timerRef.current = window.setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
-            // Auto finish round
             handleShowResult();
             return 0;
           }
-          if (prev <= 4) playSound('tick'); // Ticking sound near end
+          if (prev <= 4) playSound('tick'); 
           return prev - 1;
         });
       }, 1000);
@@ -35,32 +44,68 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [gameState.phase, gameState.currentRoundIndex]);
 
+  // 2. Check if ALL players answered -> Finish immediately
+  useEffect(() => {
+    if (gameState.phase === GamePhase.PLAYING && gameState.players.length > 0) {
+      const allAnswered = gameState.players.every(p => p.lastAnswer);
+      if (allAnswered) {
+        // Small delay to ensure the last player sees their selection click
+        const timeout = setTimeout(() => {
+             handleShowResult();
+        }, 500);
+        return () => clearTimeout(timeout);
+      }
+    }
+  }, [gameState.players, gameState.phase]);
+
   const startRound = () => {
+    // Reset players lastAnswer for the new round
+    const resetPlayers = gameState.players.map(p => ({
+        ...p,
+        lastAnswer: undefined,
+        lastAnswerTime: undefined
+    }));
+
     const startTime = Date.now();
-    updateGameState({ ...gameState, phase: GamePhase.PLAYING, roundStartTime: startTime });
+    updateGameState({ 
+        ...gameState, 
+        players: resetPlayers,
+        phase: GamePhase.PLAYING, 
+        roundStartTime: startTime 
+    });
     broadcastEvent({ type: 'HOST_NEXT_ROUND', payload: { roundIndex: gameState.currentRoundIndex, startTime } });
   };
 
   const handleShowResult = () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    // Ensure we don't trigger this multiple times if already in result phase
+    if (gameState.phase === GamePhase.ROUND_RESULT) return;
+
     updateGameState({ ...gameState, phase: GamePhase.ROUND_RESULT });
     broadcastEvent({ type: 'HOST_SHOW_RESULT', payload: {} });
-    playSound('victory'); // Round finished sound
+    playSound('victory'); 
   };
 
   const nextRound = () => {
     const nextIndex = gameState.currentRoundIndex + 1;
     if (nextIndex < gameState.rounds.length) {
-      // Setup next round but wait for start click
+      // Reset players for next round
+      const resetPlayers = gameState.players.map(p => ({
+        ...p,
+        lastAnswer: undefined,
+        lastAnswerTime: undefined
+      }));
+
+      const startTime = Date.now();
       const newState = { 
         ...gameState, 
+        players: resetPlayers,
         currentRoundIndex: nextIndex, 
-        phase: GamePhase.PLAYING, // Auto start next round? Or wait? Let's auto start for flow or allow pause.
-        // Let's go to playing immediately for this design
-        roundStartTime: Date.now()
+        phase: GamePhase.PLAYING, 
+        roundStartTime: startTime
       };
       updateGameState(newState);
-      broadcastEvent({ type: 'HOST_NEXT_ROUND', payload: { roundIndex: nextIndex, startTime: Date.now() } });
+      broadcastEvent({ type: 'HOST_NEXT_ROUND', payload: { roundIndex: nextIndex, startTime } });
     } else {
       endGame();
     }
@@ -72,6 +117,46 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
     playSound('victory');
   };
 
+  // 3. JSON Upload Handler
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const json = JSON.parse(content);
+        if (!Array.isArray(json)) throw new Error("File phải là một mảng JSON (Array)");
+
+        const newRounds: GameRound[] = json.map((item: any, index: number) => ({
+            id: index + 1,
+            question: item.question || `Câu hỏi ${index + 1}`,
+            correctWords: item.correctWords || [],
+            // Nếu không có allWords, trộn đáp án đúng với pool mặc định
+            allWords: item.allWords || [...item.correctWords, ...DEFAULT_POOL].sort(() => 0.5 - Math.random()).slice(0, 24),
+            duration: typeof item.duration === 'number' ? item.duration : 15
+        }));
+
+        if (newRounds.length === 0) throw new Error("Không tìm thấy câu hỏi hợp lệ trong file");
+
+        updateGameState({
+            ...gameState,
+            rounds: newRounds,
+            currentRoundIndex: 0
+        });
+        setJsonError(null);
+        alert(`Đã nhập thành công ${newRounds.length} câu hỏi!`);
+      } catch (err: any) {
+        setJsonError(err.message || "Lỗi đọc file JSON");
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // --- RENDER ---
+
   // 1. LOBBY
   if (gameState.phase === GamePhase.LOBBY) {
     const qrUrl = getQrCodeUrl(window.location.href);
@@ -80,20 +165,35 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
          <div className="flex flex-col md:flex-row gap-8 h-full">
             {/* Left: Info */}
             <div className="w-full md:w-1/3 glass-panel rounded-3xl p-8 flex flex-col justify-center items-center text-center">
-               <h1 className="text-4xl font-black uppercase italic mb-2 text-brand-yellow leading-tight"><br/></h1>
-               <div className="text-white/60 mb-8">Dùng điện thoại để tham gia</div>
+               <h1 className="text-4xl font-black uppercase italic mb-2 text-brand-yellow leading-tight">CHỌN TỪ<br/>XỬ LÝ MÂU THUẪN</h1>
+               <div className="text-white/60 mb-6">Dùng điện thoại để tham gia</div>
                
-               <div className="bg-white p-4 rounded-2xl shadow-xl mb-6">
-                  <img src={qrUrl} alt="QR" className="w-48 h-48 mix-blend-multiply" />
+               <div className="bg-white p-4 rounded-2xl shadow-xl mb-4">
+                  <img src={qrUrl} alt="QR" className="w-40 h-40 mix-blend-multiply" />
                </div>
                
-               <div className="text-6xl font-black font-mono tracking-widest text-white mb-2">{gameState.pin}</div>
-               <div className="text-sm opacity-50 uppercase tracking-widest">Mã PIN</div>
+               <div className="text-5xl font-black font-mono tracking-widest text-white mb-2">{gameState.pin}</div>
+               <div className="text-sm opacity-50 uppercase tracking-widest mb-6">Mã PIN</div>
+
+               {/* Import Config Section */}
+               <div className="w-full bg-black/20 p-4 rounded-xl mb-6 hover:bg-black/30 transition-colors">
+                 <label className="flex flex-col items-center justify-center cursor-pointer gap-2 group">
+                    <div className="flex items-center gap-2 text-sm font-bold text-brand-accent group-hover:text-white transition-colors">
+                        <Upload size={16} /> Nhập câu hỏi (JSON)
+                    </div>
+                    <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
+                    <div className="text-[10px] text-white/40">Gồm câu hỏi, đáp án, thời gian</div>
+                 </label>
+                 {jsonError && <div className="text-red-400 text-xs mt-2 bg-red-900/50 p-1 rounded">{jsonError}</div>}
+                 <div className="mt-2 text-xs text-white/60">
+                    Hiện có: <span className="font-bold text-white">{gameState.rounds.length}</span> câu hỏi
+                 </div>
+               </div>
 
                <button 
                  onClick={startRound}
                  disabled={gameState.players.length === 0}
-                 className="mt-8 w-full bg-brand-accent text-white py-4 rounded-xl font-black text-xl hover:bg-emerald-500 disabled:opacity-50 shadow-lg flex items-center justify-center gap-2 animate-bounce-gentle"
+                 className="w-full bg-brand-accent text-white py-4 rounded-xl font-black text-xl hover:bg-emerald-500 disabled:opacity-50 shadow-lg flex items-center justify-center gap-2 animate-bounce-gentle transition-all"
                >
                  <Play fill="currentColor" /> BẮT ĐẦU GAME
                </button>
@@ -111,6 +211,11 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
                         <span className="font-bold">{p.name}</span>
                      </div>
                   ))}
+                  {gameState.players.length === 0 && (
+                    <div className="w-full h-full flex items-center justify-center text-white/20 italic">
+                      Chưa có ai tham gia...
+                    </div>
+                  )}
                </div>
             </div>
          </div>
@@ -133,7 +238,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
             <div className="bg-white/10 px-6 py-3 rounded-full font-bold text-xl">
                Vòng {gameState.currentRoundIndex + 1} / {gameState.rounds.length}
             </div>
-            <div className={`text-4xl font-black font-mono flex items-center gap-3 ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-brand-yellow'}`}>
+            <div className={`text-4xl font-black font-mono flex items-center gap-3 ${timeLeft <= 5 && !isResult ? 'text-red-500 animate-pulse' : 'text-brand-yellow'}`}>
                <Timer size={36} /> {isResult ? '00' : (timeLeft < 10 ? `0${timeLeft}` : timeLeft)}
             </div>
             <div className="bg-white/10 px-6 py-3 rounded-full font-bold flex items-center gap-2">
@@ -149,7 +254,11 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
                   {currentRound.question}
                </h2>
                {!isResult && (
-                 <div className="text-xl text-white/60 animate-pulse">Hãy chọn đáp án đúng nhất trên điện thoại của bạn!</div>
+                 <div className="text-xl text-white/60 animate-pulse">
+                    {answeredCount === gameState.players.length 
+                        ? "Đang hiển thị kết quả..." 
+                        : "Hãy chọn đáp án đúng nhất trên điện thoại của bạn!"}
+                 </div>
                )}
             </div>
 
