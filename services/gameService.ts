@@ -54,7 +54,7 @@ export const generatePin = () => Math.floor(100000 + Math.random() * 900000).toS
 export const getAvatarUrl = (id: number) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`;
 export const getQrCodeUrl = (data: string) => `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
 
-// --- Audio System (Updated for Soft/Zen Feel) ---
+// --- Audio System (Updated for Upbeat/Funky Feel) ---
 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
 let bgMusicAudio: HTMLAudioElement | null = null;
 
@@ -62,10 +62,10 @@ export const toggleBackgroundMusic = (shouldPlay: boolean) => {
   if (audioCtx.state === 'suspended') audioCtx.resume();
 
   if (!bgMusicAudio) {
-    // Cập nhật nhạc nền Lofi Study
-    bgMusicAudio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=lofi-study-112191.mp3'); 
+    // New Upbeat / Funky Track suitable for gameshows
+    bgMusicAudio = new Audio('https://cdn.pixabay.com/download/audio/2021/11/01/audio_00fa556552.mp3?filename=funky-life-112188.mp3'); 
     bgMusicAudio.loop = true;
-    bgMusicAudio.volume = 0.3;
+    bgMusicAudio.volume = 0.25;
   }
 
   if (shouldPlay) {
@@ -84,99 +84,109 @@ export const playSound = (type: 'slice' | 'explosion' | 'wrong' | 'start' | 'vic
 
   switch (type) {
     case 'slice':
-      // Tiếng vút kiếm sắc bén (High frequency whoosh)
+      // Sharp Woosh
       const osc = audioCtx.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(800, now);
-      osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
-      gainNode.gain.setValueAtTime(0.2, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.15);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(1200, now);
+      osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+      gainNode.gain.setValueAtTime(0.1, now);
+      gainNode.gain.linearRampToValueAtTime(0, now + 0.1);
       osc.start(now);
-      osc.stop(now + 0.15);
+      osc.stop(now + 0.1);
       break;
 
     case 'explosion':
-      // Tiếng nổ bong bóng (Soft Pop/Chime)
+      // Soft Pop
       const osc2 = audioCtx.createOscillator();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(400, now);
-      osc2.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(200, now);
+      osc2.frequency.exponentialRampToValueAtTime(50, now + 0.3);
       gainNode.gain.setValueAtTime(0.3, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      gainNode.gain.linearRampToValueAtTime(0, now + 0.3);
       osc2.start(now);
       osc2.stop(now + 0.3);
       break;
 
     case 'wrong':
-      // Tiếng kính vỡ / bass trầm (Dull thud)
+      // Low Error Buzz
       const osc3 = audioCtx.createOscillator();
       osc3.type = 'sawtooth';
-      osc3.frequency.setValueAtTime(100, now);
-      osc3.frequency.linearRampToValueAtTime(50, now + 0.3);
-      gainNode.gain.setValueAtTime(0.5, now);
+      osc3.frequency.setValueAtTime(150, now);
+      osc3.frequency.linearRampToValueAtTime(100, now + 0.3);
+      gainNode.gain.setValueAtTime(0.3, now);
       gainNode.gain.linearRampToValueAtTime(0, now + 0.3);
       osc3.start(now);
       osc3.stop(now + 0.3);
       break;
 
     case 'victory':
-      // Hợp âm chiến thắng
-      const oscV1 = audioCtx.createOscillator();
-      const oscV2 = audioCtx.createOscillator();
-      oscV1.frequency.setValueAtTime(523.25, now);
-      oscV2.frequency.setValueAtTime(783.99, now);
-      oscV1.connect(gainNode);
-      oscV2.connect(gainNode);
-      gainNode.gain.setValueAtTime(0.2, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 2);
-      oscV1.start(now); oscV1.stop(now + 2);
-      oscV2.start(now); oscV2.stop(now + 2);
+      // Arpeggio
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, i) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'square';
+        o.frequency.value = freq;
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        const startTime = now + i * 0.1;
+        g.gain.setValueAtTime(0.1, startTime);
+        g.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+        o.start(startTime);
+        o.stop(startTime + 0.5);
+      });
       break;
 
     case 'start':
-      // Start game sound
+      // Power Up
       const oscStart = audioCtx.createOscillator();
-      oscStart.frequency.setValueAtTime(400, now);
-      oscStart.frequency.exponentialRampToValueAtTime(800, now + 0.5);
-      gainNode.gain.setValueAtTime(0.1, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
-      oscStart.start(now); oscStart.stop(now + 0.5);
+      oscStart.type = 'triangle';
+      oscStart.frequency.setValueAtTime(220, now);
+      oscStart.frequency.linearRampToValueAtTime(880, now + 0.4);
+      gainNode.gain.setValueAtTime(0.2, now);
+      gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
+      oscStart.start(now); oscStart.stop(now + 0.4);
       break;
 
     case 'join':
+      // Ding
       const oscJoin = audioCtx.createOscillator();
-      oscJoin.frequency.setValueAtTime(600, now);
-      oscJoin.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+      oscJoin.type = 'sine';
+      oscJoin.frequency.setValueAtTime(1200, now);
       gainNode.gain.setValueAtTime(0.1, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.1);
-      oscJoin.start(now); oscJoin.stop(now + 0.1);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      oscJoin.start(now); oscJoin.stop(now + 0.5);
       break;
 
     case 'correct':
+      // High Ding
       const oscCorrect = audioCtx.createOscillator();
       oscCorrect.type = 'sine';
-      oscCorrect.frequency.setValueAtTime(600, now);
-      oscCorrect.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
-      gainNode.gain.setValueAtTime(0.1, now);
+      oscCorrect.frequency.setValueAtTime(880, now);
+      oscCorrect.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
+      gainNode.gain.setValueAtTime(0.2, now);
       gainNode.gain.linearRampToValueAtTime(0, now + 0.2);
       oscCorrect.start(now); oscCorrect.stop(now + 0.2);
       break;
 
     case 'tick':
+      // Wood block click
       const oscTick = audioCtx.createOscillator();
       oscTick.type = 'square';
-      oscTick.frequency.setValueAtTime(800, now);
-      gainNode.gain.setValueAtTime(0.02, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-      oscTick.start(now); oscTick.stop(now + 0.05);
+      oscTick.frequency.setValueAtTime(1200, now);
+      gainNode.gain.setValueAtTime(0.05, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+      oscTick.start(now); oscTick.stop(now + 0.03);
       break;
 
     case 'click':
+      // Modern UI Click (Crisp)
       const oscClick = audioCtx.createOscillator();
-      oscClick.frequency.setValueAtTime(400, now);
-      gainNode.gain.setValueAtTime(0.05, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-      oscClick.start(now); oscClick.stop(now + 0.05);
+      oscClick.type = 'triangle';
+      oscClick.frequency.setValueAtTime(600, now);
+      gainNode.gain.setValueAtTime(0.1, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      oscClick.start(now); oscClick.stop(now + 0.08);
       break;
   }
 };
