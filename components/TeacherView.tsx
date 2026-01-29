@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, GamePhase, GameRound } from '../types';
 import { broadcastEvent, getAvatarUrl, getQrCodeUrl, playSound } from '../services/gameService';
-import { Users, Crown, Play, Timer, ArrowRight, Upload, Settings, Trash2, Plus, Save, X, Edit3, Clock, CheckCircle } from 'lucide-react';
+import { Users, Crown, Play, Timer, ArrowRight, Upload, Settings, Trash2, Plus, Save, X, Edit3, Clock, CheckCircle, Loader } from 'lucide-react';
 
 interface TeacherViewProps {
   gameState: GameState;
@@ -276,7 +276,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
             {/* Left: Info */}
             <div className="w-full md:w-1/3 glass-panel rounded-3xl p-8 flex flex-col justify-center items-center text-center relative">
                
-               <h1 className="text-4xl font-black uppercase italic mb-2 text-brand-yellow leading-tight"><br/>XỬ LÝ MÂU THUẪN</h1>
+               <h1 className="text-4xl font-black uppercase italic mb-2 text-brand-yellow leading-tight">CHỌN TỪ<br/>XỬ LÝ MÂU THUẪN</h1>
                
                <div className="bg-white p-4 rounded-2xl shadow-xl mb-4 mt-4">
                   <img src={qrUrl} alt="QR" className="w-40 h-40 mix-blend-multiply" />
@@ -354,21 +354,39 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
             </div>
          </div>
 
-         <div className="flex-1 flex flex-col items-center justify-center relative">
+         <div className="flex-1 flex flex-col items-center justify-start relative">
             
-            {/* Question Card */}
-            <div className="w-full max-w-4xl mb-8 text-center z-10">
-               <h2 className="text-3xl md:text-5xl font-black leading-snug drop-shadow-lg mb-4">
+            {/* Question Card - Smaller in Playing mode to fit status */}
+            <div className="w-full max-w-4xl mb-4 text-center z-10 transition-all duration-300">
+               <h2 className={`font-black leading-tight drop-shadow-lg mb-4 ${isResult ? 'text-2xl md:text-3xl' : 'text-3xl md:text-5xl'}`}>
                   {currentRound.question}
                </h2>
-               {!isResult && (
-                 <div className="text-xl text-white/60 animate-pulse">
-                    {answeredCount === gameState.players.length 
-                        ? "Đang hiển thị kết quả..." 
-                        : "Hãy chọn đáp án đúng nhất trên điện thoại của bạn!"}
-                 </div>
-               )}
             </div>
+
+            {/* PLAYER STATUS GRID (Only in Playing Phase) */}
+            {!isResult && (
+                <div className="w-full max-w-5xl mb-8 flex flex-wrap justify-center gap-3 animate-pop">
+                    {gameState.players.map(p => {
+                        const hasAnswered = !!p.lastAnswer;
+                        return (
+                            <div key={p.id} className={`transition-all duration-300 flex flex-col items-center ${hasAnswered ? 'scale-110' : 'opacity-50 grayscale scale-90'}`}>
+                                <div className="relative">
+                                    <img 
+                                        src={getAvatarUrl(p.avatarId)} 
+                                        className={`w-12 h-12 rounded-full border-2 ${hasAnswered ? 'border-brand-accent bg-brand-accent' : 'border-white/20 bg-white/10'}`} 
+                                    />
+                                    {hasAnswered && (
+                                        <div className="absolute -top-1 -right-1 bg-brand-accent rounded-full text-white p-0.5 shadow-lg animate-bounce-gentle">
+                                            <CheckCircle size={14} fill="currentColor" className="text-white" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="text-[10px] mt-1 font-bold max-w-[60px] truncate">{p.name}</div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* RESULT REVEAL */}
             {isResult && (
