@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, GamePhase, GameRound } from '../types';
 import { broadcastEvent, getAvatarUrl, getQrCodeUrl, playSound } from '../services/gameService';
-import { Users, Crown, Play, Timer, ArrowRight, CheckCircle, XCircle, Upload, FileJson } from 'lucide-react';
+import { Users, Crown, Play, Timer, ArrowRight, Upload, Settings, Trash2, Plus, Save, X, Edit3, Clock, CheckCircle } from 'lucide-react';
 
 interface TeacherViewProps {
   gameState: GameState;
@@ -17,6 +17,7 @@ const DEFAULT_POOL = [
 
 export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameState }) => {
   const [timeLeft, setTimeLeft] = useState(0);
+  const [showManager, setShowManager] = useState(false); // Toggle Manager Modal
   const [jsonError, setJsonError] = useState<string | null>(null);
   const timerRef = useRef<number | null>(null);
 
@@ -44,12 +45,11 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [gameState.phase, gameState.currentRoundIndex]);
 
-  // 2. Check if ALL players answered -> Finish immediately
+  // 2. Check if ALL players answered
   useEffect(() => {
     if (gameState.phase === GamePhase.PLAYING && gameState.players.length > 0) {
       const allAnswered = gameState.players.every(p => p.lastAnswer);
       if (allAnswered) {
-        // Small delay to ensure the last player sees their selection click
         const timeout = setTimeout(() => {
              handleShowResult();
         }, 500);
@@ -59,7 +59,12 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
   }, [gameState.players, gameState.phase]);
 
   const startRound = () => {
-    // Reset players lastAnswer for the new round
+    if (gameState.rounds.length === 0) {
+        alert("Chưa có câu hỏi nào! Hãy thêm câu hỏi trong phần Quản lý.");
+        setShowManager(true);
+        return;
+    }
+
     const resetPlayers = gameState.players.map(p => ({
         ...p,
         lastAnswer: undefined,
@@ -78,7 +83,6 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
 
   const handleShowResult = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    // Ensure we don't trigger this multiple times if already in result phase
     if (gameState.phase === GamePhase.ROUND_RESULT) return;
 
     updateGameState({ ...gameState, phase: GamePhase.ROUND_RESULT });
@@ -89,7 +93,6 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
   const nextRound = () => {
     const nextIndex = gameState.currentRoundIndex + 1;
     if (nextIndex < gameState.rounds.length) {
-      // Reset players for next round
       const resetPlayers = gameState.players.map(p => ({
         ...p,
         lastAnswer: undefined,
@@ -117,7 +120,8 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
     playSound('victory');
   };
 
-  // 3. JSON Upload Handler
+  // --- MANAGER FUNCTIONS ---
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -127,32 +131,52 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
       try {
         const content = event.target?.result as string;
         const json = JSON.parse(content);
-        if (!Array.isArray(json)) throw new Error("File phải là một mảng JSON (Array)");
+        if (!Array.isArray(json)) throw new Error("File phải là mảng JSON");
 
         const newRounds: GameRound[] = json.map((item: any, index: number) => ({
-            id: index + 1,
-            question: item.question || `Câu hỏi ${index + 1}`,
-            correctWords: item.correctWords || [],
-            // Nếu không có allWords, trộn đáp án đúng với pool mặc định
-            allWords: item.allWords || [...item.correctWords, ...DEFAULT_POOL].sort(() => 0.5 - Math.random()).slice(0, 24),
+            id: Date.now() + index, // Unique ID based on time
+            question: item.question || `Câu hỏi mới`,
+            correctWords: item.correctWords || ["Đáp án đúng"],
+            allWords: item.allWords || [...(item.correctWords || ["Đáp án đúng"]), ...DEFAULT_POOL].sort(() => 0.5 - Math.random()).slice(0, 24),
             duration: typeof item.duration === 'number' ? item.duration : 15
         }));
 
-        if (newRounds.length === 0) throw new Error("Không tìm thấy câu hỏi hợp lệ trong file");
-
+        // Append to existing rounds instead of replace
         updateGameState({
             ...gameState,
-            rounds: newRounds,
-            currentRoundIndex: 0
+            rounds: [...gameState.rounds, ...newRounds]
         });
         setJsonError(null);
-        alert(`Đã nhập thành công ${newRounds.length} câu hỏi!`);
+        alert(`Đã thêm ${newRounds.length} câu hỏi vào kho!`);
       } catch (err: any) {
         setJsonError(err.message || "Lỗi đọc file JSON");
-        console.error(err);
       }
     };
     reader.readAsText(file);
+    // Reset value so same file can be uploaded again
+    e.target.value = '';
+  };
+
+  const removeRound = (indexToRemove: number) => {
+      const newRounds = gameState.rounds.filter((_, idx) => idx !== indexToRemove);
+      updateGameState({ ...gameState, rounds: newRounds });
+  };
+
+  const updateRoundField = (index: number, field: keyof GameRound, value: any) => {
+      const newRounds = [...gameState.rounds];
+      newRounds[index] = { ...newRounds[index], [field]: value };
+      updateGameState({ ...gameState, rounds: newRounds });
+  };
+
+  const addNewRound = () => {
+      const newRound: GameRound = {
+          id: Date.now(),
+          question: "Câu hỏi mới (Nhấn để sửa)",
+          correctWords: ["Đáp án đúng"],
+          allWords: DEFAULT_POOL,
+          duration: 15
+      };
+      updateGameState({ ...gameState, rounds: [...gameState.rounds, newRound] });
   };
 
   // --- RENDER ---
@@ -161,42 +185,126 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
   if (gameState.phase === GamePhase.LOBBY) {
     const qrUrl = getQrCodeUrl(window.location.href);
     return (
-      <div className="h-full flex flex-col p-8 max-w-7xl mx-auto">
+      <div className="h-full flex flex-col p-8 max-w-7xl mx-auto relative">
+         
+         {/* Manager Modal */}
+         {showManager && (
+            <div className="absolute inset-0 z-50 bg-brand-dark/95 backdrop-blur-xl rounded-3xl p-6 flex flex-col animate-pop border border-white/20 shadow-2xl">
+                <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                    <h2 className="text-3xl font-black text-white flex items-center gap-3">
+                        <Settings className="animate-spin-slow" /> QUẢN LÝ CÂU HỎI ({gameState.rounds.length})
+                    </h2>
+                    <button onClick={() => setShowManager(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
+                        <X size={28} />
+                    </button>
+                </div>
+
+                {/* List Container */}
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+                    {gameState.rounds.map((round, idx) => (
+                        <div key={round.id} className="bg-white/5 p-4 rounded-xl flex items-start gap-4 hover:bg-white/10 transition-colors group">
+                            <div className="bg-white/10 w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm shrink-0 mt-1">
+                                {idx + 1}
+                            </div>
+                            
+                            <div className="flex-1 space-y-2">
+                                {/* Question Input */}
+                                <input 
+                                    type="text" 
+                                    value={round.question}
+                                    onChange={(e) => updateRoundField(idx, 'question', e.target.value)}
+                                    className="w-full bg-transparent border-b border-transparent focus:border-brand-accent focus:bg-black/20 outline-none text-lg font-bold placeholder-white/30 transition-all p-1"
+                                    placeholder="Nhập nội dung câu hỏi..."
+                                />
+                                {/* Duration & Info */}
+                                <div className="flex items-center gap-4 text-sm text-white/50">
+                                    <div className="flex items-center gap-1 bg-black/20 px-2 py-1 rounded">
+                                        <Clock size={14} /> 
+                                        <input 
+                                            type="number" 
+                                            value={round.duration}
+                                            onChange={(e) => updateRoundField(idx, 'duration', parseInt(e.target.value) || 15)}
+                                            className="w-10 bg-transparent text-center font-bold text-brand-yellow outline-none"
+                                        /> giây
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <CheckCircle size={14} /> {round.correctWords.length} đáp án đúng
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={() => removeRound(idx)}
+                                className="text-white/20 hover:text-red-500 hover:bg-white/10 p-2 rounded-lg transition-all"
+                                title="Xóa câu này"
+                            >
+                                <Trash2 size={20} />
+                            </button>
+                        </div>
+                    ))}
+                    {gameState.rounds.length === 0 && (
+                        <div className="text-center text-white/30 py-12 italic border-2 border-dashed border-white/10 rounded-xl">
+                            Chưa có câu hỏi nào. Hãy thêm mới hoặc import JSON.
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer Actions */}
+                <div className="mt-6 pt-4 border-t border-white/10 flex flex-wrap gap-4 items-center justify-between">
+                    <div className="flex gap-4">
+                        <button onClick={addNewRound} className="flex items-center gap-2 bg-brand-accent hover:bg-emerald-500 px-5 py-3 rounded-xl font-bold transition-all shadow-lg active:scale-95">
+                            <Plus size={20} /> Thêm thủ công
+                        </button>
+                        
+                        <label className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 px-5 py-3 rounded-xl font-bold cursor-pointer transition-all shadow-lg active:scale-95 relative overflow-hidden">
+                            <Upload size={20} /> 
+                            <span>Import JSON (Thêm)</span>
+                            <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
+                        </label>
+                    </div>
+
+                    <button onClick={() => setShowManager(false)} className="flex items-center gap-2 bg-white text-black hover:bg-gray-200 px-8 py-3 rounded-xl font-black text-lg shadow-xl transition-all active:scale-95">
+                        <Save size={20} /> ĐÓNG & LƯU
+                    </button>
+                </div>
+                {jsonError && <div className="absolute bottom-20 left-6 right-6 bg-red-500/90 text-white px-4 py-2 rounded-lg text-sm text-center animate-pop">{jsonError}</div>}
+            </div>
+         )}
+
+         {/* Main Lobby Content */}
          <div className="flex flex-col md:flex-row gap-8 h-full">
             {/* Left: Info */}
-            <div className="w-full md:w-1/3 glass-panel rounded-3xl p-8 flex flex-col justify-center items-center text-center">
-               <h1 className="text-4xl font-black uppercase italic mb-2 text-brand-yellow leading-tight">CHỌN TỪ<br/>XỬ LÝ MÂU THUẪN</h1>
-               <div className="text-white/60 mb-6">Dùng điện thoại để tham gia</div>
+            <div className="w-full md:w-1/3 glass-panel rounded-3xl p-8 flex flex-col justify-center items-center text-center relative">
                
-               <div className="bg-white p-4 rounded-2xl shadow-xl mb-4">
+               <h1 className="text-4xl font-black uppercase italic mb-2 text-brand-yellow leading-tight"><br/>XỬ LÝ MÂU THUẪN</h1>
+               
+               <div className="bg-white p-4 rounded-2xl shadow-xl mb-4 mt-4">
                   <img src={qrUrl} alt="QR" className="w-40 h-40 mix-blend-multiply" />
                </div>
                
                <div className="text-5xl font-black font-mono tracking-widest text-white mb-2">{gameState.pin}</div>
-               <div className="text-sm opacity-50 uppercase tracking-widest mb-6">Mã PIN</div>
+               <div className="text-sm opacity-50 uppercase tracking-widest mb-8">Mã PIN</div>
 
-               {/* Import Config Section */}
-               <div className="w-full bg-black/20 p-4 rounded-xl mb-6 hover:bg-black/30 transition-colors">
-                 <label className="flex flex-col items-center justify-center cursor-pointer gap-2 group">
-                    <div className="flex items-center gap-2 text-sm font-bold text-brand-accent group-hover:text-white transition-colors">
-                        <Upload size={16} /> Nhập câu hỏi (JSON)
-                    </div>
-                    <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
-                    <div className="text-[10px] text-white/40">Gồm câu hỏi, đáp án, thời gian</div>
-                 </label>
-                 {jsonError && <div className="text-red-400 text-xs mt-2 bg-red-900/50 p-1 rounded">{jsonError}</div>}
-                 <div className="mt-2 text-xs text-white/60">
-                    Hiện có: <span className="font-bold text-white">{gameState.rounds.length}</span> câu hỏi
-                 </div>
+               <div className="grid grid-cols-2 gap-3 w-full mb-4">
+                   <button 
+                     onClick={() => setShowManager(true)}
+                     className="bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold border border-white/10 flex items-center justify-center gap-2 transition-all"
+                   >
+                     <Settings size={18} /> Quản lý ({gameState.rounds.length})
+                   </button>
+                   
+                   <button 
+                     onClick={startRound}
+                     disabled={gameState.players.length === 0 || gameState.rounds.length === 0}
+                     className="bg-brand-accent text-white py-3 rounded-xl font-black text-lg hover:bg-emerald-500 disabled:opacity-50 disabled:grayscale shadow-lg flex items-center justify-center gap-2 animate-bounce-gentle transition-all"
+                   >
+                     <Play fill="currentColor" size={18} /> BẮT ĐẦU
+                   </button>
                </div>
-
-               <button 
-                 onClick={startRound}
-                 disabled={gameState.players.length === 0}
-                 className="w-full bg-brand-accent text-white py-4 rounded-xl font-black text-xl hover:bg-emerald-500 disabled:opacity-50 shadow-lg flex items-center justify-center gap-2 animate-bounce-gentle transition-all"
-               >
-                 <Play fill="currentColor" /> BẮT ĐẦU GAME
-               </button>
+               
+               <div className="text-xs text-white/40">
+                  {gameState.players.length === 0 ? "Đang chờ người chơi..." : "Đã sẵn sàng!"}
+               </div>
             </div>
 
             {/* Right: Players */}
