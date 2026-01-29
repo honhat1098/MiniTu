@@ -54,7 +54,7 @@ export const generatePin = () => Math.floor(100000 + Math.random() * 900000).toS
 export const getAvatarUrl = (id: number) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`;
 export const getQrCodeUrl = (data: string) => `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
 
-// --- Audio System (Updated for Upbeat/Funky Feel) ---
+// --- Audio System (Modern & Clean - No 8-bit) ---
 let audioCtx: AudioContext | null = null;
 let bgMusicAudio: HTMLAudioElement | null = null;
 
@@ -71,10 +71,10 @@ export const toggleBackgroundMusic = (shouldPlay: boolean) => {
   if (ctx.state === 'suspended') ctx.resume();
 
   if (!bgMusicAudio) {
-    // New Upbeat / Funky Track suitable for gameshows
-    bgMusicAudio = new Audio('https://cdn.pixabay.com/download/audio/2021/11/01/audio_00fa556552.mp3?filename=funky-life-112188.mp3'); 
+    // Updated Track: Comedy Funny Quirky (Modern, Fun)
+    bgMusicAudio = new Audio('https://cdn.pixabay.com/download/audio/2025/07/24/audio_a01817ef77.mp3?filename=comedy-funny-quirky-background-music-379525.mp3'); 
     bgMusicAudio.loop = true;
-    bgMusicAudio.volume = 0.25;
+    bgMusicAudio.volume = 0.3; // Volume vừa phải
   }
 
   if (shouldPlay) {
@@ -90,113 +90,158 @@ export const playSound = (type: 'slice' | 'explosion' | 'wrong' | 'start' | 'vic
   
   const now = ctx.currentTime;
   const gainNode = ctx.createGain();
-  gainNode.connect(ctx.destination);
+  // Master compressor for better sound quality
+  const compressor = ctx.createDynamicsCompressor();
+  
+  gainNode.connect(compressor);
+  compressor.connect(ctx.destination);
 
   switch (type) {
-    case 'slice':
-      // Sharp Woosh
-      const osc = ctx.createOscillator();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(1200, now);
-      osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-      gainNode.gain.setValueAtTime(0.1, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.1);
-      osc.start(now);
-      osc.stop(now + 0.1);
-      break;
-
-    case 'explosion':
-      // Soft Pop
-      const osc2 = ctx.createOscillator();
-      osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(200, now);
-      osc2.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+    case 'click':
+      // Modern "Pop" / Bubble sound (High Sine wave with fast decay)
+      const oscClick = ctx.createOscillator();
+      oscClick.type = 'sine';
+      oscClick.frequency.setValueAtTime(800, now);
+      oscClick.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+      
       gainNode.gain.setValueAtTime(0.3, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.3);
-      osc2.start(now);
-      osc2.stop(now + 0.3);
-      break;
-
-    case 'wrong':
-      // Low Error Buzz
-      const osc3 = ctx.createOscillator();
-      osc3.type = 'sawtooth';
-      osc3.frequency.setValueAtTime(150, now);
-      osc3.frequency.linearRampToValueAtTime(100, now + 0.3);
-      gainNode.gain.setValueAtTime(0.3, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.3);
-      osc3.start(now);
-      osc3.stop(now + 0.3);
-      break;
-
-    case 'victory':
-      // Arpeggio
-      const notes = [523.25, 659.25, 783.99, 1046.50];
-      notes.forEach((freq, i) => {
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = 'square';
-        o.frequency.value = freq;
-        o.connect(g);
-        g.connect(ctx.destination);
-        const startTime = now + i * 0.1;
-        g.gain.setValueAtTime(0.1, startTime);
-        g.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
-        o.start(startTime);
-        o.stop(startTime + 0.5);
-      });
-      break;
-
-    case 'start':
-      // Power Up
-      const oscStart = ctx.createOscillator();
-      oscStart.type = 'triangle';
-      oscStart.frequency.setValueAtTime(220, now);
-      oscStart.frequency.linearRampToValueAtTime(880, now + 0.4);
-      gainNode.gain.setValueAtTime(0.2, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
-      oscStart.start(now); oscStart.stop(now + 0.4);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      
+      oscClick.connect(gainNode);
+      oscClick.start(now);
+      oscClick.stop(now + 0.1);
       break;
 
     case 'join':
-      // Ding
+      // "Bloop" sound (Water drop style)
       const oscJoin = ctx.createOscillator();
       oscJoin.type = 'sine';
-      oscJoin.frequency.setValueAtTime(1200, now);
-      gainNode.gain.setValueAtTime(0.1, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-      oscJoin.start(now); oscJoin.stop(now + 0.5);
+      oscJoin.frequency.setValueAtTime(400, now);
+      oscJoin.frequency.linearRampToValueAtTime(800, now + 0.2);
+      
+      gainNode.gain.setValueAtTime(0.2, now);
+      gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
+      
+      oscJoin.connect(gainNode);
+      oscJoin.start(now);
+      oscJoin.stop(now + 0.2);
       break;
 
     case 'correct':
-      // High Ding
-      const oscCorrect = ctx.createOscillator();
-      oscCorrect.type = 'sine';
-      oscCorrect.frequency.setValueAtTime(880, now);
-      oscCorrect.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
-      gainNode.gain.setValueAtTime(0.2, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.2);
-      oscCorrect.start(now); oscCorrect.stop(now + 0.2);
+      // Pleasant Chime (Major Third Harmony)
+      [523.25, 659.25].forEach((freq, i) => { // C5, E5
+        const osc = ctx.createOscillator();
+        osc.type = 'sine'; // Sine is smooth, not 8-bit
+        osc.frequency.setValueAtTime(freq, now);
+        
+        const g = ctx.createGain();
+        g.connect(compressor);
+        
+        g.gain.setValueAtTime(0.15, now);
+        g.gain.exponentialRampToValueAtTime(0.01, now + 0.6); // Long sustain
+        
+        osc.connect(g);
+        osc.start(now + i * 0.05); // Slight stagger (strum effect)
+        osc.stop(now + 0.7);
+      });
+      break;
+
+    case 'wrong':
+      // Soft "Bonk" (Low Triangle wave)
+      const oscWrong = ctx.createOscillator();
+      oscWrong.type = 'triangle'; // Warmer than square/sawtooth
+      oscWrong.frequency.setValueAtTime(150, now);
+      oscWrong.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+      
+      gainNode.gain.setValueAtTime(0.4, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      
+      oscWrong.connect(gainNode);
+      oscWrong.start(now);
+      oscWrong.stop(now + 0.2);
+      break;
+
+    case 'slice':
+      // Clean "Swoosh" (High pitch sine slide down)
+      const oscSlice = ctx.createOscillator();
+      oscSlice.type = 'sine';
+      oscSlice.frequency.setValueAtTime(2000, now);
+      oscSlice.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+      
+      gainNode.gain.setValueAtTime(0.15, now);
+      gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
+      
+      oscSlice.connect(gainNode);
+      oscSlice.start(now);
+      oscSlice.stop(now + 0.2);
       break;
 
     case 'tick':
-      // Wood block click
+      // Woodblock-like (Sine with very fast attack/decay)
       const oscTick = ctx.createOscillator();
-      oscTick.type = 'square';
-      oscTick.frequency.setValueAtTime(1200, now);
-      gainNode.gain.setValueAtTime(0.05, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-      oscTick.start(now); oscTick.stop(now + 0.03);
+      oscTick.type = 'sine';
+      oscTick.frequency.setValueAtTime(1000, now);
+      
+      gainNode.gain.setValueAtTime(0.1, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+      
+      oscTick.connect(gainNode);
+      oscTick.start(now);
+      oscTick.stop(now + 0.05);
       break;
 
-    case 'click':
-      // Modern UI Click (Crisp)
-      const oscClick = ctx.createOscillator();
-      oscClick.type = 'triangle';
-      oscClick.frequency.setValueAtTime(600, now);
-      gainNode.gain.setValueAtTime(0.1, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-      oscClick.start(now); oscClick.stop(now + 0.08);
+    case 'victory':
+      // Fanfare (Chord Stack - Sine/Triangle mix)
+      [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+        osc.frequency.value = freq;
+        
+        const g = ctx.createGain();
+        g.connect(compressor);
+        
+        const start = now + i * 0.1;
+        g.gain.setValueAtTime(0, start);
+        g.gain.linearRampToValueAtTime(0.15, start + 0.1);
+        g.gain.exponentialRampToValueAtTime(0.01, start + 2);
+        
+        osc.connect(g);
+        osc.start(start);
+        osc.stop(start + 2.5);
+      });
+      break;
+      
+    case 'start':
+      // Uplifting Sweep
+      const oscStart = ctx.createOscillator();
+      oscStart.type = 'sine';
+      oscStart.frequency.setValueAtTime(200, now);
+      oscStart.frequency.exponentialRampToValueAtTime(1000, now + 0.6);
+      
+      gainNode.gain.setValueAtTime(0.2, now);
+      gainNode.gain.linearRampToValueAtTime(0, now + 0.6);
+      
+      oscStart.connect(gainNode);
+      oscStart.start(now);
+      oscStart.stop(now + 0.6);
+      break;
+      
+    case 'explosion':
+      // Since we can't use noise easily without a buffer, use a rapid low cluster
+      // to simulate a "thump"
+      [100, 120, 150].forEach(f => {
+         const o = ctx.createOscillator();
+         o.type = 'triangle';
+         o.frequency.setValueAtTime(f, now);
+         o.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+         const g = ctx.createGain();
+         g.connect(compressor);
+         g.gain.setValueAtTime(0.2, now);
+         g.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+         o.connect(g);
+         o.start(now);
+         o.stop(now + 0.3);
+      });
       break;
   }
 };
