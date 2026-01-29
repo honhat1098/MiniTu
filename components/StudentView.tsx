@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GamePhase, GameState, Player } from '../types';
 import { broadcastEvent, connectToGameRoom, getAvatarUrl, playSound } from '../services/gameService';
-import { CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Zap, Loader2 } from 'lucide-react';
 
 interface StudentViewProps {
   gameState: GameState;
@@ -14,6 +14,7 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
   const [pinInput, setPinInput] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [tempPlayer, setTempPlayer] = useState<Player | null>(null);
 
   const me = gameState.players.find(p => p.id === localPlayerId);
   const currentRound = gameState.rounds[gameState.currentRoundIndex];
@@ -22,6 +23,19 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
   useEffect(() => {
     setSelectedWord(null);
   }, [gameState.roundStartTime]);
+
+  // Handle Join Verification: Wait for Host to acknowledge via SYNC_STATE
+  useEffect(() => {
+    if (isJoining && tempPlayer) {
+        // If the current game state now contains our temp player ID, it means Host accepted us
+        const isAccepted = gameState.players.some(p => p.id === tempPlayer.id);
+        if (isAccepted) {
+            setLocalPlayerId(tempPlayer.id);
+            setIsJoining(false);
+            setTempPlayer(null);
+        }
+    }
+  }, [gameState.players, isJoining, tempPlayer, setLocalPlayerId]);
 
   // Handle Result Sound
   useEffect(() => {
@@ -38,8 +52,11 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
   const handleJoin = async () => {
     if (!name || !pinInput) return;
     setIsJoining(true);
+    
+    // 1. Connect to channel
     await connectToGameRoom(pinInput);
     
+    // 2. Create Temp Player & Broadcast Join Request
     const newPlayer: Player = {
       id: `student-${Date.now()}`,
       name: name,
@@ -48,8 +65,25 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
       lives: 3
     };
     
-    setLocalPlayerId(newPlayer.id);
+    setTempPlayer(newPlayer);
+    
+    // 3. Send Request
     broadcastEvent({ type: 'PLAYER_JOIN', payload: newPlayer });
+
+    // 4. Set Timeout: If no sync state received in 5s, fail.
+    setTimeout(() => {
+        setIsJoining((currentJoining) => {
+            if (currentJoining) { // Still joining...
+                alert("Không tìm thấy phòng hoặc Host chưa mở! Vui lòng kiểm tra mã PIN.");
+                return false;
+            }
+            return false;
+        });
+        setTempPlayer((currentPlayer) => {
+             // Clean up temp player if we timed out
+             return null;
+        });
+    }, 5000);
   };
 
   const submitAnswer = (word: string) => {
@@ -82,11 +116,17 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
           <h2 className="text-2xl font-black text-center mb-8 uppercase text-white tracking-widest">Tham Gia Game</h2>
           <div className="space-y-4">
             <input type="text" placeholder="Mã PIN" value={pinInput} onChange={e => setPinInput(e.target.value)} 
-                   className="w-full bg-black/40 p-4 rounded-xl text-center text-2xl font-black text-brand-accent border border-brand-accent/30 outline-none focus:border-brand-accent transition-all placeholder-white/20" />
+                   disabled={isJoining}
+                   className="w-full bg-black/40 p-4 rounded-xl text-center text-2xl font-black text-brand-accent border border-brand-accent/30 outline-none focus:border-brand-accent transition-all placeholder-white/20 disabled:opacity-50" />
             <input type="text" placeholder="Tên của bạn" value={name} onChange={e => setName(e.target.value)} 
-                   className="w-full bg-black/40 p-4 rounded-xl text-center text-xl font-bold text-white border border-brand-accent/30 outline-none focus:border-brand-accent transition-all placeholder-white/20" />
-            <button onClick={handleJoin} disabled={isJoining} className="w-full bg-brand-accent hover:bg-cyan-400 text-brand-darker font-black text-lg p-4 rounded-xl shadow-[0_4px_0_#0e7490] active:shadow-none active:translate-y-1 transition-all mt-4 uppercase">
-              {isJoining ? 'Đang vào...' : 'VÀO GAME'}
+                   disabled={isJoining}
+                   className="w-full bg-black/40 p-4 rounded-xl text-center text-xl font-bold text-white border border-brand-accent/30 outline-none focus:border-brand-accent transition-all placeholder-white/20 disabled:opacity-50" />
+            <button onClick={handleJoin} disabled={isJoining} className="w-full bg-brand-accent hover:bg-cyan-400 text-brand-darker font-black text-lg p-4 rounded-xl shadow-[0_4px_0_#0e7490] active:shadow-none active:translate-y-1 transition-all mt-4 uppercase flex items-center justify-center gap-2 disabled:opacity-70 disabled:grayscale">
+              {isJoining ? (
+                <><Loader2 className="animate-spin" /> Đang kết nối...</>
+              ) : (
+                'VÀO GAME'
+              )}
             </button>
           </div>
         </div>
