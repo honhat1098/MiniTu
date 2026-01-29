@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GamePhase, GameState, Player, GameEvent, GameRound } from './types';
 import { broadcastEvent, subscribeToGameEvents, generatePin, connectToGameRoom, toggleBackgroundMusic, playSound } from './services/gameService';
 import { TeacherView } from './components/TeacherView';
-import { StudentView } from './components/StudentView';
+import StudentView from './components/StudentView';
 import { Home } from './components/Home';
 
 // --- DATA CẤU HÌNH GAME ---
