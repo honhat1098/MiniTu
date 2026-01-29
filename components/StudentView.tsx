@@ -110,7 +110,7 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
   // 3. PLAYING GRID
   if (gameState.phase === GamePhase.PLAYING) {
     return (
-       <div className="h-full flex flex-col p-4">
+       <div className="h-full flex flex-col p-4 relative">
           <div className="flex justify-between items-center mb-4">
             <div className="text-sm font-bold text-brand-accent uppercase tracking-widest">Vòng {gameState.currentRoundIndex + 1}</div>
             <div className="bg-brand-accent/20 border border-brand-accent/50 text-brand-accent px-4 py-1 rounded-full text-sm font-black">{me?.score} PTS</div>
@@ -142,11 +142,13 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
           </div>
           
           {selectedWord && (
-             <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-[90%] p-4 bg-brand-darker/90 backdrop-blur border border-brand-yellow rounded-2xl text-center animate-pop z-50 shadow-2xl">
-                <div className="text-brand-yellow font-black flex items-center justify-center gap-2 text-lg">
-                   <Clock className="animate-spin-slow" size={24} /> ĐÃ CHỌN:
+             <div className="fixed bottom-6 left-0 w-full flex justify-center z-50 pointer-events-none">
+                <div className="w-[90%] max-w-md p-4 bg-brand-darker/95 backdrop-blur border border-brand-yellow rounded-2xl text-center animate-pop shadow-2xl pointer-events-auto">
+                    <div className="text-brand-yellow font-black flex items-center justify-center gap-2 text-lg">
+                       <Clock className="animate-spin-slow" size={24} /> ĐÃ CHỌN:
+                    </div>
+                    <div className="text-xl font-bold text-white mt-1">{selectedWord}</div>
                 </div>
-                <div className="text-xl font-bold text-white mt-1">{selectedWord}</div>
              </div>
           )}
        </div>
@@ -159,29 +161,33 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
     const isCorrect = finalAnswer && currentRound.correctWords.includes(finalAnswer);
     
     return (
-      <div className={`h-full flex flex-col items-center justify-center p-6 ${isCorrect ? 'bg-emerald-600' : 'bg-rose-600'} transition-colors duration-500`}>
-         {isCorrect ? (
-           <div className="text-center animate-pop">
-             <div className="bg-white/20 p-6 rounded-full inline-block mb-6">
-                 <CheckCircle className="w-20 h-20 text-white" fill="currentColor" />
-             </div>
-             <h2 className="text-5xl font-black mb-2 text-white drop-shadow-md">CHÍNH XÁC!</h2>
-             <div className="text-2xl font-bold bg-black/20 px-6 py-2 rounded-full inline-block mt-4 text-emerald-100">+{me?.score > 0 ? "Points" : ""} {me?.score}</div>
-           </div>
-         ) : (
-           <div className="text-center animate-pop">
-             <div className="bg-white/20 p-6 rounded-full inline-block mb-6">
-                <XCircle className="w-20 h-20 text-white" fill="currentColor" />
-             </div>
-             <h2 className="text-5xl font-black mb-2 text-white">SAI RỒI!</h2>
-             <p className="opacity-90 mb-6 text-xl">Bạn chọn: <span className="font-bold border-b-2 border-white/50">{finalAnswer || "Chưa chọn"}</span></p>
-             <div className="bg-black/30 p-6 rounded-2xl border border-white/10">
-               <div className="text-xs uppercase opacity-70 mb-2 tracking-widest">Đáp án đúng là:</div>
-               <div className="font-black text-2xl text-brand-yellow">{currentRound.correctWords.join(", ")}</div>
-             </div>
-           </div>
-         )}
-         <div className="absolute bottom-10 text-sm font-bold opacity-60 animate-pulse uppercase tracking-widest">Đợi Host tiếp tục...</div>
+      <div className={`h-full flex flex-col items-center justify-center p-6 ${isCorrect ? 'bg-emerald-600' : 'bg-rose-600'} transition-colors duration-500 overflow-y-auto`}>
+         <div className="flex-1 flex flex-col items-center justify-center w-full max-w-lg">
+            {isCorrect ? (
+            <div className="text-center animate-pop w-full">
+                <div className="bg-white/20 p-6 rounded-full inline-block mb-6">
+                    <CheckCircle className="w-20 h-20 text-white" fill="currentColor" />
+                </div>
+                <h2 className="text-5xl font-black mb-2 text-white drop-shadow-md">CHÍNH XÁC!</h2>
+                <div className="text-2xl font-bold bg-black/20 px-6 py-2 rounded-full inline-block mt-4 text-emerald-100">+{me?.score > 0 ? "Points" : ""} {me?.score}</div>
+            </div>
+            ) : (
+            <div className="text-center animate-pop w-full">
+                <div className="bg-white/20 p-6 rounded-full inline-block mb-6">
+                    <XCircle className="w-20 h-20 text-white" fill="currentColor" />
+                </div>
+                <h2 className="text-5xl font-black mb-4 text-white">SAI RỒI!</h2>
+                <div className="mb-8 text-xl break-words px-4">
+                    Bạn chọn: <span className="font-bold border-b-2 border-white/50">{finalAnswer || "Chưa chọn"}</span>
+                </div>
+                <div className="bg-black/30 p-6 rounded-2xl border border-white/10 w-full">
+                    <div className="text-xs uppercase opacity-70 mb-2 tracking-widest">Đáp án đúng là:</div>
+                    <div className="font-black text-2xl text-brand-yellow break-words leading-tight">{currentRound.correctWords.join(", ")}</div>
+                </div>
+            </div>
+            )}
+            <div className="mt-8 text-sm font-bold opacity-60 animate-pulse uppercase tracking-widest text-center">Đợi Host tiếp tục...</div>
+         </div>
       </div>
     );
   }
