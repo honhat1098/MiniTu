@@ -50,13 +50,20 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
   }, [gameState.phase, selectedWord, me?.lastAnswer, currentRound]);
 
   const handleJoin = async () => {
-    if (!name || !pinInput) return;
+    const cleanPin = pinInput.trim();
+    if (!name || !cleanPin) return;
     setIsJoining(true);
     
-    // 1. Connect to channel
-    await connectToGameRoom(pinInput);
+    // 1. Connect to channel and WAIT for 'SUBSCRIBED'
+    const isConnected = await connectToGameRoom(cleanPin);
     
-    // 2. Create Temp Player & Broadcast Join Request
+    if (!isConnected) {
+        alert("Lỗi kết nối! Vui lòng kiểm tra mạng hoặc thử lại.");
+        setIsJoining(false);
+        return;
+    }
+    
+    // 2. Create Temp Player
     const newPlayer: Player = {
       id: `student-${Date.now()}`,
       name: name,
@@ -67,23 +74,22 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
     
     setTempPlayer(newPlayer);
     
-    // 3. Send Request
-    broadcastEvent({ type: 'PLAYER_JOIN', payload: newPlayer });
+    // 3. Send Request (Now guaranteed to be listening for reply)
+    await broadcastEvent({ type: 'PLAYER_JOIN', payload: newPlayer });
 
-    // 4. Set Timeout: If no sync state received in 5s, fail.
+    // 4. Set Timeout: Increase to 10s for slow networks
     setTimeout(() => {
         setIsJoining((currentJoining) => {
             if (currentJoining) { // Still joining...
-                alert("Không tìm thấy phòng hoặc Host chưa mở! Vui lòng kiểm tra mã PIN.");
+                alert("Không tìm thấy phòng hoặc Host chưa mở! Vui lòng kiểm tra lại mã PIN.");
                 return false;
             }
             return false;
         });
         setTempPlayer((currentPlayer) => {
-             // Clean up temp player if we timed out
              return null;
         });
-    }, 5000);
+    }, 10000);
   };
 
   const submitAnswer = (word: string) => {
