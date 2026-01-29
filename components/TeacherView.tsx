@@ -417,8 +417,8 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
   // 3. PODIUM (FINISHED)
   const winners = [...gameState.players].sort((a, b) => b.score - a.score);
   return (
-    <div className="h-full flex flex-col items-center justify-center relative overflow-hidden bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900 via-brand-darker to-black">
-        <div className="absolute inset-0 overflow-hidden">
+    <div className="h-full flex flex-col items-center justify-start pt-12 relative overflow-y-auto bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900 via-brand-darker to-black scrollbar-hide">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
            <div className="confetti-piece left-[10%] animate-[fall_3s_infinite]"></div>
            <div className="confetti-piece left-[30%] animate-[fall_2.5s_infinite]"></div>
            <div className="confetti-piece left-[50%] animate-[fall_4s_infinite]"></div>
@@ -426,47 +426,47 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ gameState, updateGameS
            <div className="confetti-piece left-[90%] animate-[fall_3.5s_infinite]"></div>
         </div>
 
-        <div className="text-center mb-16 z-20">
-           <h1 className="text-6xl font-black uppercase italic text-transparent bg-clip-text bg-gradient-to-b from-brand-yellow to-orange-500 mb-2 drop-shadow-2xl">VÔ ĐỊCH</h1>
-           <p className="text-2xl text-white/80 font-light tracking-wide">Bậc thầy xử lý mâu thuẫn</p>
+        <div className="text-center mb-8 z-10 shrink-0">
+           <h1 className="text-5xl md:text-6xl font-black uppercase italic text-transparent bg-clip-text bg-gradient-to-b from-brand-yellow to-orange-500 mb-2 drop-shadow-2xl px-4 py-2">VÔ ĐỊCH</h1>
+           <p className="text-xl md:text-2xl text-white/80 font-light tracking-wide">Bậc thầy xử lý mâu thuẫn</p>
         </div>
 
         {/* Podium */}
-        <div className="flex items-end gap-4 md:gap-8 mb-16 scale-90 md:scale-100 z-10">
+        <div className="flex items-end gap-4 md:gap-8 mb-8 scale-90 md:scale-100 z-10 shrink-0">
            {/* Rank 2 */}
            {winners[1] && (
              <div className="flex flex-col items-center animate-pop" style={{animationDelay: '0.2s'}}>
-                <img src={getAvatarUrl(winners[1].avatarId)} className="w-24 h-24 rounded-full border-4 border-slate-300 bg-white mb-4 shadow-xl" />
-                <div className="font-bold text-xl mb-2 text-slate-300">{winners[1].name}</div>
-                <div className="bg-gradient-to-b from-slate-400 to-slate-600 w-28 h-40 flex items-center justify-center rounded-t-2xl text-5xl font-black text-white shadow-2xl border-t border-white/20">2</div>
-                <div className="mt-4 font-mono bg-white/10 backdrop-blur px-6 py-2 rounded-full font-bold text-xl">{winners[1].score}</div>
+                <img src={getAvatarUrl(winners[1].avatarId)} className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-slate-300 bg-white mb-4 shadow-xl" />
+                <div className="font-bold text-lg md:text-xl mb-2 text-slate-300">{winners[1].name}</div>
+                <div className="bg-gradient-to-b from-slate-400 to-slate-600 w-24 md:w-28 h-36 md:h-40 flex items-center justify-center rounded-t-2xl text-4xl md:text-5xl font-black text-white shadow-2xl border-t border-white/20">2</div>
+                <div className="mt-4 font-mono bg-white/10 backdrop-blur px-4 md:px-6 py-2 rounded-full font-bold text-lg md:text-xl">{winners[1].score}</div>
              </div>
            )}
            {/* Rank 1 */}
            {winners[0] && (
              <div className="flex flex-col items-center order-first md:order-none animate-pop z-20 -mb-4">
-                <Crown className="text-brand-yellow w-16 h-16 mb-4 animate-bounce" fill="currentColor" />
-                <img src={getAvatarUrl(winners[0].avatarId)} className="w-32 h-32 rounded-full border-4 border-brand-yellow bg-white mb-4 shadow-[0_0_60px_rgba(250,204,21,0.6)]" />
-                <div className="font-bold text-3xl mb-2 text-brand-yellow">{winners[0].name}</div>
-                <div className="bg-gradient-to-b from-brand-yellow to-orange-600 w-36 h-56 flex items-center justify-center rounded-t-2xl text-7xl font-black text-white shadow-2xl relative overflow-hidden border-t border-white/30">
+                <Crown className="text-brand-yellow w-14 h-14 md:w-16 md:h-16 mb-4 animate-bounce" fill="currentColor" />
+                <img src={getAvatarUrl(winners[0].avatarId)} className="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-brand-yellow bg-white mb-4 shadow-[0_0_60px_rgba(250,204,21,0.6)]" />
+                <div className="font-bold text-2xl md:text-3xl mb-2 text-brand-yellow">{winners[0].name}</div>
+                <div className="bg-gradient-to-b from-brand-yellow to-orange-600 w-32 md:w-36 h-48 md:h-56 flex items-center justify-center rounded-t-2xl text-6xl md:text-7xl font-black text-white shadow-2xl relative overflow-hidden border-t border-white/30">
                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
                    1
                 </div>
-                <div className="mt-4 font-mono bg-brand-yellow text-brand-darker px-8 py-3 rounded-full text-3xl font-black shadow-lg transform -rotate-1">{winners[0].score}</div>
+                <div className="mt-4 font-mono bg-brand-yellow text-brand-darker px-6 md:px-8 py-3 rounded-full text-2xl md:text-3xl font-black shadow-lg transform -rotate-1">{winners[0].score}</div>
              </div>
            )}
            {/* Rank 3 */}
            {winners[2] && (
              <div className="flex flex-col items-center animate-pop" style={{animationDelay: '0.4s'}}>
-                <img src={getAvatarUrl(winners[2].avatarId)} className="w-24 h-24 rounded-full border-4 border-orange-400 bg-white mb-4 shadow-xl" />
-                <div className="font-bold text-xl mb-2 text-orange-400">{winners[2].name}</div>
-                <div className="bg-gradient-to-b from-orange-500 to-amber-700 w-28 h-32 flex items-center justify-center rounded-t-2xl text-5xl font-black text-white shadow-2xl border-t border-white/20">3</div>
-                <div className="mt-4 font-mono bg-white/10 backdrop-blur px-6 py-2 rounded-full font-bold text-xl">{winners[2].score}</div>
+                <img src={getAvatarUrl(winners[2].avatarId)} className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-orange-400 bg-white mb-4 shadow-xl" />
+                <div className="font-bold text-lg md:text-xl mb-2 text-orange-400">{winners[2].name}</div>
+                <div className="bg-gradient-to-b from-orange-500 to-amber-700 w-24 md:w-28 h-28 md:h-32 flex items-center justify-center rounded-t-2xl text-4xl md:text-5xl font-black text-white shadow-2xl border-t border-white/20">3</div>
+                <div className="mt-4 font-mono bg-white/10 backdrop-blur px-4 md:px-6 py-2 rounded-full font-bold text-lg md:text-xl">{winners[2].score}</div>
              </div>
            )}
         </div>
         
-        <button onClick={() => window.location.reload()} className="z-20 bg-white/10 hover:bg-white/20 border border-white/30 text-white px-10 py-4 rounded-full font-bold text-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95">CHƠI LẠI</button>
+        <button onClick={() => window.location.reload()} className="z-20 bg-white/10 hover:bg-white/20 border border-white/30 text-white px-10 py-4 rounded-full font-bold text-lg backdrop-blur-md transition-all hover:scale-105 active:scale-95 mb-8 shrink-0">CHƠI LẠI</button>
     </div>
   );
 };
