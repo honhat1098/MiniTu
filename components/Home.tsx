@@ -10,18 +10,15 @@ export const Home: React.FC<HomeProps> = ({ onHost, onJoin }) => {
   return (
     <div className="h-full flex flex-col items-center justify-center p-6 text-center">
       <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full text-brand-accent font-bold text-sm mb-6 border border-white/10 animate-pop">
-         <Zap size={16} fill="currentColor" /> GROUP 4 PRESENTS
+         <Zap size={16} fill="currentColor" /> Nhóm 4
       </div>
       
-      <h2 className="text-5xl md:text-7xl font-black mb-4 leading-tight tracking-tight">
-        MASTER OF <br/>
+      <h2 className="text-5xl md:text-7xl font-black mb-16 leading-tight tracking-tight">
+        Chọn Đúng <br/>
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-accent via-white to-brand-secondary drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]">
-          CONFLICT
+          HÀNH ĐỘNG
         </span>
       </h2>
-      <p className="text-xl text-indigo-100 mb-12 max-w-xl opacity-80">
-        Trò chơi tương tác thời gian thực. Nhanh tay, tinh mắt và chọn giải pháp đúng đắn!
-      </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
         {/* Host Button */}
