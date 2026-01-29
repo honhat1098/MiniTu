@@ -18,19 +18,24 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
   const me = gameState.players.find(p => p.id === localPlayerId);
   const currentRound = gameState.rounds[gameState.currentRoundIndex];
 
-  // Reset selection when round changes
+  // Reset selection ONLY when a new round starts (based on start time)
+  // FIX: Previously depended on gameState.phase which cleared selection when moving to ROUND_RESULT
   useEffect(() => {
     setSelectedWord(null);
-  }, [gameState.currentRoundIndex, gameState.phase]);
+  }, [gameState.roundStartTime]);
 
   // Handle Result Sound
   useEffect(() => {
-    if (gameState.phase === GamePhase.ROUND_RESULT && selectedWord) {
-      const isCorrect = currentRound.correctWords.includes(selectedWord);
-      if (isCorrect) playSound('correct');
-      else playSound('wrong');
+    if (gameState.phase === GamePhase.ROUND_RESULT) {
+      // Use locally selected word or fallback to server state
+      const answer = selectedWord || me?.lastAnswer;
+      if (answer) {
+        const isCorrect = currentRound.correctWords.includes(answer);
+        if (isCorrect) playSound('correct');
+        else playSound('wrong');
+      }
     }
-  }, [gameState.phase]);
+  }, [gameState.phase, selectedWord, me?.lastAnswer, currentRound]);
 
   const handleJoin = async () => {
     if (!name || !pinInput) return;
@@ -149,7 +154,9 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
 
   // 4. ROUND RESULT
   if (gameState.phase === GamePhase.ROUND_RESULT) {
-    const isCorrect = selectedWord && currentRound.correctWords.includes(selectedWord);
+    // Robustness: Use selectedWord OR confirm from server state (me.lastAnswer)
+    const finalAnswer = selectedWord || me?.lastAnswer;
+    const isCorrect = finalAnswer && currentRound.correctWords.includes(finalAnswer);
     
     return (
       <div className={`h-full flex flex-col items-center justify-center p-6 ${isCorrect ? 'bg-green-600' : 'bg-red-600'} transition-colors duration-500`}>
@@ -164,7 +171,7 @@ const StudentView: React.FC<StudentViewProps> = ({ gameState, localPlayerId, set
            <div className="text-center animate-pop">
              <XCircle className="w-24 h-24 mx-auto mb-4 text-white" />
              <h2 className="text-4xl font-black mb-2">SAI RỒI!</h2>
-             <p className="opacity-80 mb-4">Bạn chọn: {selectedWord || "Chưa chọn"}</p>
+             <p className="opacity-80 mb-4">Bạn chọn: {finalAnswer || "Chưa chọn"}</p>
              <div className="bg-black/20 p-4 rounded-xl">
                <div className="text-xs uppercase opacity-70 mb-1">Đáp án đúng:</div>
                <div className="font-bold text-xl">{currentRound.correctWords.join(", ")}</div>
