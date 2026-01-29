@@ -218,8 +218,8 @@ const App: React.FC = () => {
 
       {/* Watermark */}
       <div className="fixed top-4 right-4 z-50 text-white/30 font-bold text-[10px] pointer-events-none text-right">
-         <div className="uppercase tracking-widest text-brand-accent">Conflict Master</div>
-         <div>Group 4</div>
+         <div className="uppercase tracking-widest text-brand-accent">KNTU & GQVD</div>
+         <div>Nhóm 4</div>
       </div>
     </div>
   );
