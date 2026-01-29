@@ -19,21 +19,45 @@ try {
 
 let onGameEvent: ((event: GameEvent) => void) | null = null;
 
-export const connectToGameRoom = async (pin: string) => {
-  if (!supabase) return;
-  if (currentChannel) await supabase.removeChannel(currentChannel);
+export const connectToGameRoom = (pin: string): Promise<boolean> => {
+  return new Promise(async (resolve) => {
+    if (!supabase) {
+        resolve(false);
+        return;
+    }
 
-  currentChannel = supabase.channel(`ninja_room_${pin}`, {
-    config: { broadcast: { self: true } },
-  });
+    // Clean up existing channel properly
+    if (currentChannel) {
+        await supabase.removeChannel(currentChannel);
+        currentChannel = null;
+    }
 
-  currentChannel
-    .on('broadcast', { event: 'game-event' }, (payload: { payload: GameEvent }) => {
-      if (onGameEvent) onGameEvent(payload.payload);
-    })
-    .subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') console.log("Connected to room", pin);
+    currentChannel = supabase.channel(`ninja_room_${pin}`, {
+      config: { broadcast: { self: true } },
     });
+
+    currentChannel
+      .on('broadcast', { event: 'game-event' }, (payload: { payload: GameEvent }) => {
+        if (onGameEvent) onGameEvent(payload.payload);
+      })
+      .subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+              console.log("Connected to room", pin);
+              resolve(true);
+          }
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              console.error("Connection failed", status);
+              resolve(false);
+          }
+      });
+      
+    // Fallback timeout in case Supabase hangs
+    setTimeout(() => {
+        if (currentChannel && currentChannel.state !== 'joined') {
+            resolve(false);
+        }
+    }, 10000);
+  });
 };
 
 export const subscribeToGameEvents = (callback: (event: GameEvent) => void) => {
